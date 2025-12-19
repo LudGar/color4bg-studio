@@ -437,5 +437,5 @@ writeCommonUI();
 buildPaletteUI();
 buildGenSettingsUI();
 hookUI();
-setUIHidden(state.uiHidden);
+setUiHidden();
 applyNow();
