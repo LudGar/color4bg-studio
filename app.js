@@ -103,13 +103,26 @@ const DEFAULTS = {
   generator: "aesthetic-fluid",
   seed: 1000,
   loop: true,
-  colors: ["#D1ADFF", "#98D69B", "#FAE390", "#FFACD8", "#7DD5FF", "#D1ADFF"],
+  colors: ["#080E13", "#121F2B", "#152F44", "#15415F", "#10537B", "#006699"],
   genOpts: {},
   lockUrl: false,
+  uiHidden: false,
 };
 
 let state = structuredClone(DEFAULTS);
 let instance = null;
+
+function setUiHidden(hidden) {
+  state.uiHidden = !!hidden;
+  const ui = $("#ui");
+  if (!ui) return;
+  ui.style.display = state.uiHidden ? "none" : "";
+  scheduleUrlUpdate();
+}
+
+function toggleUiHidden() {
+  setUiHidden(!state.uiHidden);
+}
 
 // ---------- URL SHARING ----------
 // Query params:
@@ -163,6 +176,9 @@ function parseUrlIntoState() {
 
   const lock = sp.get("lock");
   if (lock === "1" || lock === "0") state.lockUrl = lock === "1";
+  
+  const ui = sp.get("ui");
+  if (ui === "0" || ui === "1") state.uiHidden = (ui === "0");
 }
 
 function buildShareUrl() {
@@ -171,7 +187,8 @@ function buildShareUrl() {
   sp.set("g", state.generator);
   sp.set("s", String(Math.max(0, Math.floor(state.seed))));
   sp.set("l", state.loop ? "1" : "0");
-
+  sp.set("ui", state.uiHidden ? "0" : "1");
+  
   const cols = (state.colors || []).slice(0, 6).filter(Boolean).map((h) => h.replace("#", "").toUpperCase());
   if (cols.length) sp.set("c", cols.join(","));
 
@@ -388,6 +405,22 @@ function hookUI() {
 
   $("#apply").addEventListener("click", () => applyNow());
 
+    window.addEventListener("keydown", (e) => {
+    // Don’t steal keys while typing in inputs
+    const tag = (document.activeElement?.tagName || "").toLowerCase();
+    const isTyping = tag === "input" || tag === "textarea" || tag === "select";
+    if (isTyping) return;
+
+    if (e.key.toLowerCase() === "h") {
+      e.preventDefault();
+      toggleUiHidden();
+    }
+
+    if (e.key === "Escape") {
+      setUiHidden(false);
+    }
+  });
+
   $("#reset").addEventListener("click", () => {
     state = structuredClone(DEFAULTS);
     writeCommonUI();
@@ -404,4 +437,5 @@ writeCommonUI();
 buildPaletteUI();
 buildGenSettingsUI();
 hookUI();
+setUIHidden(state.uiHidden);
 applyNow();
