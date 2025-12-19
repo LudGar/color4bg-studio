@@ -34,6 +34,7 @@ const GEN = {
   "wavy-waves": { cls: WavyWavesBg, label: "Wavy Waves" },
 };
 
+// Generator-specific UI schema
 const GEN_SETTINGS = {
   "aesthetic-fluid": [
     { key: "blur", label: "Blur", min: 0, max: 1, step: 0.01, value: 0.35 },
@@ -64,10 +65,6 @@ const GEN_SETTINGS = {
   "triangles-mosaic": [
     { key: "size", label: "Cell Size", min: 10, max: 200, step: 1, value: 70 },
     { key: "jitter", label: "Jitter", min: 0, max: 1, step: 0.01, value: 0.35 },
-  ],
-  "organic-shapes": [
-    { key: "count", label: "Shape Count", min: 1, max: 40, step: 1, value: 16 },
-    { key: "softness", label: "Softness", min: 0, max: 1, step: 0.01, value: 0.6 },
   ],
   "random-cubes": [
     { key: "count", label: "Cube Count", min: 1, max: 60, step: 1, value: 24 },
@@ -107,12 +104,116 @@ const DEFAULTS = {
   seed: 1000,
   loop: true,
   colors: ["#D1ADFF", "#98D69B", "#FAE390", "#FFACD8", "#7DD5FF", "#D1ADFF"],
-  genOpts: {}, // filled per generator
+  genOpts: {},
+  lockUrl: false,
 };
 
 let state = structuredClone(DEFAULTS);
 let instance = null;
 
+// ---------- URL SHARING ----------
+// Query params:
+// g = generator key
+// s = seed (int)
+// l = loop (0/1)
+// c = colors as comma list without '#': e.g. D1ADFF,98D69B,...
+// o = generator options as compact JSON (URI-encoded). Only for the selected generator.
+// Example: o={"blur":0.35,"speed":1}
+function parseUrlIntoState() {
+  const sp = new URLSearchParams(location.search);
+
+  const g = sp.get("g");
+  if (g && GEN[g]) state.generator = g;
+
+  const s = sp.get("s");
+  if (s !== null && s !== "" && Number.isFinite(Number(s))) state.seed = Math.max(0, Math.floor(Number(s)));
+
+  const l = sp.get("l");
+  if (l === "0" || l === "1") state.loop = l === "1";
+
+  const c = sp.get("c");
+  if (c) {
+    const parts = c.split(",").map((x) => x.trim()).filter(Boolean);
+    const cols = parts.map((p) => {
+      const hex = p.replace("#", "");
+      if (/^[0-9a-fA-F]{6}$/.test(hex)) return `#${hex.toUpperCase()}`;
+      return null;
+    }).filter(Boolean);
+    if (cols.length) state.colors = cols.slice(0, 6);
+  }
+
+  const o = sp.get("o");
+  if (o) {
+    try {
+      const obj = JSON.parse(decodeURIComponent(o));
+      if (obj && typeof obj === "object") {
+        state.genOpts[state.generator] ??= {};
+        // Only accept keys that exist in our schema for safety
+        const allowed = new Set((GEN_SETTINGS[state.generator] ?? []).map((x) => x.key));
+        for (const [k, v] of Object.entries(obj)) {
+          if (!allowed.has(k)) continue;
+          const num = Number(v);
+          if (Number.isFinite(num)) state.genOpts[state.generator][k] = num;
+        }
+      }
+    } catch {
+      // ignore invalid o
+    }
+  }
+
+  const lock = sp.get("lock");
+  if (lock === "1" || lock === "0") state.lockUrl = lock === "1";
+}
+
+function buildShareUrl() {
+  const sp = new URLSearchParams();
+
+  sp.set("g", state.generator);
+  sp.set("s", String(Math.max(0, Math.floor(state.seed))));
+  sp.set("l", state.loop ? "1" : "0");
+
+  const cols = (state.colors || []).slice(0, 6).filter(Boolean).map((h) => h.replace("#", "").toUpperCase());
+  if (cols.length) sp.set("c", cols.join(","));
+
+  const allowed = new Set((GEN_SETTINGS[state.generator] ?? []).map((x) => x.key));
+  const obj = {};
+  const extra = state.genOpts[state.generator] ?? {};
+  for (const [k, v] of Object.entries(extra)) {
+    if (!allowed.has(k)) continue;
+    if (!Number.isFinite(Number(v))) continue;
+    obj[k] = Number(v);
+  }
+  if (Object.keys(obj).length) sp.set("o", encodeURIComponent(JSON.stringify(obj)));
+
+  sp.set("lock", state.lockUrl ? "1" : "0");
+
+  const url = new URL(location.href);
+  url.search = sp.toString();
+  return url.toString();
+}
+
+let urlTimer = null;
+function scheduleUrlUpdate() {
+  if (state.lockUrl) return;
+  clearTimeout(urlTimer);
+  urlTimer = setTimeout(() => {
+    const url = buildShareUrl();
+    history.replaceState(null, "", url);
+  }, 150);
+}
+
+async function copyShareUrl() {
+  const url = buildShareUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch {
+    // Clipboard can be blocked in OBS/older browsers; fallback prompt
+    window.prompt("Copy URL:", url);
+    return;
+  }
+}
+
+// ---------- UI BUILDERS ----------
 function populateGeneratorSelect() {
   const sel = $("#generator");
   sel.innerHTML = Object.entries(GEN)
@@ -124,21 +225,23 @@ function populateGeneratorSelect() {
 function buildPaletteUI() {
   const wrap = $("#palette");
   wrap.innerHTML = "";
+  const cols = [...state.colors];
+  while (cols.length < 6) cols.push("#000000");
+
   for (let i = 0; i < 6; i++) {
-    const c = state.colors[i] ?? "#000000";
     const el = document.createElement("div");
     el.className = "swatch";
-    el.innerHTML = `<input type="color" value="${c}" data-idx="${i}">`;
+    el.innerHTML = `<input type="color" value="${cols[i]}" data-idx="${i}">`;
     wrap.appendChild(el);
   }
 
-  wrap.addEventListener("input", (e) => {
+  wrap.oninput = (e) => {
     const t = e.target;
     if (t?.type !== "color") return;
     const idx = Number(t.dataset.idx);
-    state.colors[idx] = t.value;
+    state.colors[idx] = t.value.toUpperCase();
     scheduleApply();
-  }, { passive: true });
+  };
 }
 
 function buildGenSettingsUI() {
@@ -146,7 +249,7 @@ function buildGenSettingsUI() {
   const schema = GEN_SETTINGS[key] ?? [];
   const wrap = $("#genSettings");
   wrap.innerHTML = "";
-  
+
   state.genOpts[key] ??= {};
   for (const s of schema) {
     if (state.genOpts[key][s.key] === undefined) state.genOpts[key][s.key] = s.value;
@@ -179,7 +282,7 @@ function buildGenSettingsUI() {
     wrap.appendChild(row);
   }
 
-  wrap.addEventListener("input", (e) => {
+  wrap.oninput = (e) => {
     const t = e.target;
     if (t?.type !== "range") return;
     const k = t.dataset.key;
@@ -190,24 +293,26 @@ function buildGenSettingsUI() {
     if (out) out.textContent = String(v);
 
     scheduleApply();
-  }, { passive: true });
+  };
 }
 
 function readCommonUI() {
   state.generator = $("#generator").value;
   state.seed = Number($("#seed").value || 0);
   state.loop = $("#loop").checked;
+  state.lockUrl = $("#lockUrl").checked;
 }
 
 function writeCommonUI() {
   $("#generator").value = state.generator;
   $("#seed").value = String(state.seed);
   $("#loop").checked = !!state.loop;
+  $("#lockUrl").checked = !!state.lockUrl;
 }
 
+// ---------- BG INSTANCE ----------
 function destroyInstance() {
-  const host = $("#bg");
-  host.innerHTML = "";
+  $("#bg").innerHTML = "";
   instance = null;
 }
 
@@ -222,7 +327,7 @@ function applyNow() {
   const extra = state.genOpts[state.generator] ?? {};
   const opts = {
     dom: "bg",
-    colors: state.colors.filter(Boolean),
+    colors: (state.colors || []).slice(0, 6).filter(Boolean),
     seed: state.seed,
     loop: state.loop,
     ...extra,
@@ -235,22 +340,26 @@ function applyNow() {
   }
 
   buildGenSettingsUI();
+  scheduleUrlUpdate();
 }
 
 let applyTimer = null;
 function scheduleApply() {
   clearTimeout(applyTimer);
   applyTimer = setTimeout(() => applyNow(), 120);
+  // update URL even while dragging sliders, but debounced
+  scheduleUrlUpdate();
 }
 
 function randomHex() {
   const n = Math.floor(Math.random() * 0xffffff);
-  return `#${n.toString(16).padStart(6, "0")}`;
+  return `#${n.toString(16).padStart(6, "0").toUpperCase()}`;
 }
 
+// ---------- EVENTS ----------
 function hookUI() {
   $("#generator").addEventListener("change", () => {
-    // ensure per-gen state bucket exists
+    state.generator = $("#generator").value;
     state.genOpts[state.generator] ??= {};
     buildGenSettingsUI();
     scheduleApply();
@@ -258,6 +367,10 @@ function hookUI() {
 
   $("#seed").addEventListener("change", scheduleApply);
   $("#loop").addEventListener("change", scheduleApply);
+  $("#lockUrl").addEventListener("change", () => {
+    state.lockUrl = $("#lockUrl").checked;
+    scheduleUrlUpdate();
+  });
 
   $("#randomSeed").addEventListener("click", () => {
     state.seed = Math.floor(Math.random() * 1_000_000);
@@ -271,6 +384,8 @@ function hookUI() {
     scheduleApply();
   });
 
+  $("#copyUrl").addEventListener("click", copyShareUrl);
+
   $("#apply").addEventListener("click", () => applyNow());
 
   $("#reset").addEventListener("click", () => {
@@ -283,6 +398,7 @@ function hookUI() {
 }
 
 // Boot
+parseUrlIntoState();
 populateGeneratorSelect();
 writeCommonUI();
 buildPaletteUI();
