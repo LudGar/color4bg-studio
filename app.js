@@ -405,8 +405,7 @@ function hookUI() {
 
   $("#apply").addEventListener("click", () => applyNow());
 
-    window.addEventListener("keydown", (e) => {
-    // Don’t steal keys while typing in inputs
+  window.addEventListener("keydown", (e) => {
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     const isTyping = tag === "input" || tag === "textarea" || tag === "select";
     if (isTyping) return;
@@ -437,5 +436,5 @@ writeCommonUI();
 buildPaletteUI();
 buildGenSettingsUI();
 hookUI();
-setUiHidden();
+setUiHidden(state.uiHidden);
 applyNow();
