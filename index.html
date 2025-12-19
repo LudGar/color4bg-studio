@@ -33,12 +33,19 @@
         </label>
       </div>
 
-      <div class="row">
+      <div class="row wrap">
         <button id="randomSeed" class="btn">🎲 Random seed</button>
         <button id="randomColors" class="btn">🎨 Random colors</button>
+        <button id="copyUrl" class="btn">🔗 Copy Share URL</button>
       </div>
-    </section>
-
+      
+      <div class="row">
+        <label class="field field--toggle">
+          <span>Lock URL updates</span>
+          <input id="lockUrl" type="checkbox" />
+        </label>
+      </div>
+      
     <section class="panel__section">
       <div class="sectionTitle">Palette (6)</div>
       <div class="palette" id="palette"></div>
