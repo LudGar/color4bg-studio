@@ -1,84 +1,66 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Color4BG Mini Studio</title>
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Color4BG Playground (No Export)</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="bg"></div>
 
-  <body>
-    <div id="bg" aria-hidden="true"></div>
+  <aside class="panel" id="ui">
+    <header class="panel__header">
+      <div class="panel__title">Color4BG Playground</div>
+      <div class="panel__subtitle">Generator controls only (export removed)</div>
+    </header>
 
-    <aside class="panel">
-      <header class="panel__header">
-        <div class="brand">
-          <div class="brand__dot"></div>
-          <div>
-            <div class="brand__title">Color4BG Mini Studio</div>
-            <div class="brand__sub">Generators + demo-style settings</div>
-          </div>
-        </div>
+    <section class="panel__section">
+      <label class="field">
+        <span>Generator</span>
+        <select id="generator"></select>
+      </label>
 
-        <div class="row">
-          <button id="btnToggleUI" class="btn btn--ghost" title="Hide UI (H)">Hide</button>
-          <button id="btnFullscreen" class="btn btn--ghost" title="Fullscreen (F)">Full</button>
-        </div>
-      </header>
+      <div class="row">
+        <label class="field">
+          <span>Seed</span>
+          <input id="seed" type="number" min="0" step="1" value="1000" />
+        </label>
 
-      <section class="panel__section">
-        <label class="label">Generator</label>
-        <select id="generator" class="select"></select>
+        <label class="field field--toggle">
+          <span>Loop</span>
+          <input id="loop" type="checkbox" checked />
+        </label>
+      </div>
 
-        <div class="grid2 mt12">
-          <div>
-            <label class="label">Seed</label>
-            <div class="row">
-              <input id="seed" class="input" type="number" value="1000" step="1" />
-              <button id="btnRandomSeed" class="btn" title="Random seed">🎲</button>
-            </div>
-          </div>
+      <div class="row">
+        <button id="randomSeed" class="btn">🎲 Random seed</button>
+        <button id="randomColors" class="btn">🎨 Random colors</button>
+      </div>
+    </section>
 
-          <div>
-            <label class="label">Loop</label>
-            <div class="row">
-              <label class="toggle">
-                <input id="loop" type="checkbox" checked />
-                <span>Animate</span>
-              </label>
-            </div>
-          </div>
-        </div>
+    <section class="panel__section">
+      <div class="sectionTitle">Palette (6)</div>
+      <div class="palette" id="palette"></div>
+      <div class="hint">
+        Tip: click a swatch to edit. Leave fewer than 6 if you want, but 6 is the “happy path”. :contentReference[oaicite:2]{index=2}
+      </div>
+    </section>
 
-        <label class="label mt12">Colors (up to 6)</label>
-        <div id="colors" class="colors"></div>
+    <section class="panel__section">
+      <div class="sectionTitle">Generator Settings</div>
+      <div id="genSettings" class="genSettings"></div>
+      <div class="hint">
+        These settings are applied live by recreating the background instance.
+      </div>
+    </section>
 
-        <div class="row mt12 wrap">
-          <button id="btnRandomColors" class="btn">Random</button>
-          <button id="btnVivid" class="btn">Vivid</button>
-          <button id="btnPastel" class="btn">Pastel</button>
-          <button id="btnBW" class="btn">B/W</button>
-          <button id="btnRegen" class="btn btn--primary">Apply</button>
-        </div>
-      </section>
+    <footer class="panel__footer">
+      <button id="reset" class="btn btn--ghost">Reset</button>
+      <button id="apply" class="btn btn--primary">Apply</button>
+    </footer>
+  </aside>
 
-      <section class="panel__section">
-        <label class="label">Export</label>
-        <div class="row wrap">
-          <button id="btnPng" class="btn">PNG</button>
-          <button id="btnWebm" class="btn">Record WebM</button>
-          <button id="btnCopyJS" class="btn">Copy JS</button>
-        </div>
-        <p class="hint" id="status"></p>
-      </section>
-
-      <footer class="panel__footer">
-        <span class="hint">
-          Hotkeys: <b>H</b> hide UI • <b>F</b> fullscreen • <b>Enter</b> apply
-        </span>
-      </footer>
-    </aside>
-
-    <script type="module" src="./app.js"></script>
-  </body>
+  <script type="module" src="./script.js"></script>
+</body>
 </html>
